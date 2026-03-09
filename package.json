@@ -4,8 +4,9 @@
   "description": "ETL pipeline for transferring Wayfinder MongoDB session data to SQL Server for analytics",
   "main": "src/etl-test.js",
   "scripts": {
-    "start": "node src/etl-test.js",
+    "start": "node src/etl-test-data.js",
     "etl": "node src/etl-test.js",
+    "etlD": "node src/etl-test-data.js",
     "test": "echo \"No tests yet\""
   },
   "author": "Greg Elward",
