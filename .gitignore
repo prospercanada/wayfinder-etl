@@ -1,0 +1,46 @@
+# Node modules
+node_modules/
+
+# Environment variables (IMPORTANT)
+.env
+.env.local
+.env.*.local
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime files
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage reports
+coverage/
+
+# Build output
+dist/
+build/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VS Code settings (optional)
+.vscode/
+
+# Temporary files
+*.tmp
+*.temp
+
+# SQL dumps or exports
+*.sql
+*.csv
+
+# ETL output files
+exports/
+output/

@@ -1,0 +1,18 @@
+{
+  "name": "wayfinder-data",
+  "version": "1.0.0",
+  "description": "ETL pipeline for transferring Wayfinder MongoDB session data to SQL Server for analytics",
+  "main": "src/etl-test.js",
+  "scripts": {
+    "start": "node src/etl-test.js",
+    "etl": "node src/etl-test.js",
+    "test": "echo \"No tests yet\""
+  },
+  "author": "Greg Elward",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^17.3.1",
+    "mongodb": "^7.1.0",
+    "mssql": "^12.2.0"
+  }
+}
