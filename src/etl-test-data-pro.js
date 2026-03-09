@@ -177,21 +177,30 @@ async function run() {
   // Bulk Inserts
   // -------------------------
 
+  const transaction = new sql.Transaction(pool);
+  await transaction.begin();
+  const request = new sql.Request(transaction);
   console.log("Bulk inserting sessions...");
-  await pool.request().bulk(sessionTable);
+  await request.bulk(sessionTable);
+  // await pool.request().bulk(sessionTable);
 
   console.log("Answers rows:", answersTable.rows.length);
   console.log("Example:", answersTable.rows[0]);
   if (answersTable.rows.length > 0) {
     console.log("Bulk inserting answers...");
-    await pool.request().bulk(answersTable);
+    await request.bulk(answersTable);
+    // await pool.request().bulk(answersTable);
   }
 
   console.log("Bulk inserting benefits...");
-  await pool.request().bulk(benefitsTable);
+  // await pool.request().bulk(benefitsTable);
+  await request.bulk(benefitsTable);
 
   console.log("Bulk inserting activity logs...");
-  await pool.request().bulk(logTable);
+  await request.bulk(logTable);
+  // await pool.request().bulk(logTable);
+
+  await transaction.commit();
 
   console.log("Bulk insert complete");
 
