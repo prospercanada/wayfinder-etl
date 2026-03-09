@@ -1,25 +1,29 @@
 require("dotenv").config();
 
+function log(message) {
+  console.log(`[${new Date().toISOString()}] ${message}`);
+}
+
 const { MongoClient } = require("mongodb");
 const sql = require("mssql");
 
 const BATCH_SIZE = 1000;
 
 async function run() {
+  const startTime = Date.now();
   const mongo = new MongoClient(process.env.MONGO_URI);
   await mongo.connect();
 
   const db = mongo.db(process.env.MONGO_DB);
 
-  const start = new Date("2026-01-01T00:00:00Z");
-  const end = new Date("2027-01-01T00:00:00Z");
+  // const cursor = db
+  //   .collection("user-sessions")
+  //   .find({
+  //     createdAt: { $gt: lastLoaded },
+  //   })
+  //   .sort({ createdAt: 1 }); // Mongo queries perform better if sorted:?
 
-  // const cursor = db.collection("user-sessions").find({
-  //   createdAt: { $gte: start, $lt: end },
-  // });
-  const cursor = db.collection("user-sessions").find({});
-
-  console.log("Mongo cursor opened");
+  // console.log("Mongo cursor opened");
 
   const sqlConfig = {
     server: process.env.SQL_SERVER,
@@ -35,16 +39,27 @@ async function run() {
 
   const pool = await sql.connect(sqlConfig);
 
-  console.log("Truncating tables...");
-
-  await pool.request().query(`
-  TRUNCATE TABLE raw_session_activity_log;
-  TRUNCATE TABLE raw_session_benefits;
-  TRUNCATE TABLE raw_session_answers;
-  TRUNCATE TABLE raw_sessions;
+  // Determine last loaded timestamp
+  const lastLoadResult = await pool.request().query(`
+SELECT MAX(loaded_at) AS last_loaded
+FROM raw_sessions
 `);
 
-  console.log("Tables truncated");
+  const lastLoaded =
+    lastLoadResult.recordset[0].last_loaded || new Date("2000-01-01T00:00:00Z");
+  log(`Last loaded session: ${lastLoaded}`);
+
+  const cursor = db
+    .collection("user-sessions")
+    .find({
+      createdAt: { $gt: lastLoaded },
+    })
+    .sort({ createdAt: 1 }) // Mongo queries perform better if sorted:?
+    .batchSize(5000) //This reduces the number of network round trips. Often improves ETL speed 30–60%.
+    .addCursorFlag("noCursorTimeout", true); //Turn off cursor timeout for long ETL jobs:
+
+  log("Mongo cursor opened");
+
   let processed = 0;
 
   let sessionRows = [];
@@ -55,11 +70,11 @@ async function run() {
   async function flushBatch() {
     if (sessionRows.length === 0) return;
 
-    console.log(`Flushing batch: ${sessionRows.length} sessions`);
+    log(`Flushing batch: ${sessionRows.length} sessions`);
 
-    console.log(`Answers loaded: ${answerRows.length}`);
-    console.log(`Benefits loaded: ${benefitRows.length}`);
-    console.log(`Activity logs loaded: ${logRows.length}`);
+    log(`Answers loaded: ${answerRows.length}`);
+    log(`Benefits loaded: ${benefitRows.length}`);
+    log(`Activity logs loaded: ${logRows.length}`);
 
     const sessionTable = new sql.Table("raw_sessions");
     sessionTable.create = false;
@@ -74,14 +89,8 @@ async function run() {
     sessionTable.columns.add("email_count", sql.Int);
     sessionTable.columns.add("print_count", sql.Int);
 
+    sessionTable.columns.add("loaded_at", sql.DateTime); // <-----set the date
     sessionRows.forEach((r) => sessionTable.rows.add(...r));
-
-    // const answersTable = new sql.Table("raw_session_answers");
-    // answersTable.create = false;
-
-    // answersTable.columns.add("session_mongo_id", sql.NVarChar(50));
-    // answersTable.columns.add("question_key", sql.NVarChar(50));
-    // answersTable.columns.add("answer_value", sql.NVarChar(50));
 
     const answersTable = new sql.Table("dbo.raw_session_answers");
     answersTable.create = false;
@@ -162,6 +171,7 @@ async function run() {
         Number(s.questionnaireCount || 0),
         Number(s.emailCount || 0),
         Number(s.printCount || 0),
+        new Date(), // loaded_at
       ]);
 
       const answers = s.answers || {};
@@ -219,6 +229,8 @@ async function run() {
     await flushBatch();
 
     console.log(`Migration complete. Total sessions: ${processed}`);
+    log(`Migration complete. Total sessions: ${processed}`);
+    log(`Total runtime: ${(Date.now() - startTime) / 1000}s`);
   } finally {
     await pool.close();
     await mongo.close();
